@@ -1,0 +1,14 @@
+POST https://www.onepa.gov.sg/facilities/4810ccmcpa-bm
+Content-Type: application/x-www-form-urlencoded
+
+id=99
+content=new-element
+
+###
+POST https://www.onepa.gov.sg/facilities/4810ccmcpa-bm
+Content-Type: application/x-www-form-urlencoded
+Cookie: AspxAutoDetectCookieSupport=1; BIGipServerpool_PAG21PAPRPX00_443=3171570698.47873.0000; visid_incap_2318972=48j+wh7eTyeawMc4oWxkRxxphF8AAAAAQUIPAAAAAACznA27cccxyklALIYK04Q3; incap_ses_218_2318972=yJJQZMn4PG9yoyiSBH4GAxxphF8AAAAAxHhJXczWQWVvXhiz8RNodQ==; ASP.NET_SessionId=nusstznnnhjgwta4zfpoa0cn; SC_ANALYTICS_GLOBAL_COOKIE=761436377c7546d59baa4f8cdb0cbbaf; SC_ANALYTICS_SESSION_COOKIE=87370D53729147BB9EC9A88CB3D3172E|1|nusstznnnhjgwta4zfpoa0cn; sc_pview_shuser=; __AntiXsrfToken=be3b3ad06b1d45db8af50b41937a40b5; AMCV_DF38E5285913269B0A495E5A%40AdobeOrg=1075005958%7CMCIDTS%7C18548%7CMCMID%7C62417996647465116682924164488059670704%7CMCOPTOUT-1602520496s%7CNONE%7CvVersion%7C4.4.1; font_multiplier=0; AMCVS_DF38E5285913269B0A495E5A%40AdobeOrg=1
+
+
+content_0%24tbDatePicker=17%2F10%2F2020&content_0%24ddlFacilityLocation=7040354b-8e8f-e511-80c3-00155d004f00&hiddenInputToUpdateATBuffer_CommonToolkitScripts=1
+###
