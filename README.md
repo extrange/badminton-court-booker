@@ -5,3 +5,30 @@ Scrapes the onepa.gov.sg website for available badminton courts.
 Done purely over http requests (no web browser automation/emulation), so it's much faster.
 
 Built using requests and BeautifulSoup
+
+Usage:
+```
+from main import CourtDates
+from datetime import date
+
+dates = [date(2020, 11, 20), date(2020, 11, 21)]
+cc_names = ['Bukit Batok CC', 'Gek Poh Ville CC']
+
+court_dates = CourtDates()
+court_dates.get_availability_range(dates, cc_names)
+
+court_dates.availability
+```
+
+Output:
+
+```
+{
+ datetime.date(2020, 11, 20): {'Bukit Batok CC': [],
+                               'Gek Poh Ville CC': [],},
+ datetime.date(2020, 11, 21): {''Bukit Batok CC': [],
+                               'Gek Poh Ville CC': [('10:30 AM - 11:30 AM',
+                                                  'normal')]},
+```
+
+To enter a range of dates use `dates = [date(2020, 11, 20) + timedelta(days=x) for x in range(5)]`
