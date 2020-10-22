@@ -1,3 +1,5 @@
+# Mapping from CC names to UUIDs
+
 MAPPING = {
     "ACE The Place CC": "024c7837-8e8f-e511-80c3-00155d004f00",
     "Anchorvale CC": "194c7837-8e8f-e511-80c3-00155d004f00",
