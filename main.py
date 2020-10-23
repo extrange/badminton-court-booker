@@ -1,6 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 import datetime
+
+from typing import List
+
 from mapping import MAPPING
 from pprint import pprint
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +17,7 @@ CC = 'content_0$ddlFacilityLocation'  # Refer to mapping.py
 
 
 class CourtDates:
+
     ALL_CCS = MAPPING.keys()
 
     def __init__(self):
@@ -38,7 +42,7 @@ class CourtDates:
 
         self.availability.get(date)[cc_name] = result
 
-    def get_availability(self, date: datetime.date, cc_name):
+    def get_availability(self, date: datetime.date, cc_name: str):
 
         form_data_copy = self.form_data.copy()
 
@@ -68,7 +72,7 @@ class CourtDates:
 
         return result
 
-    def get_availability_range(self, dates: list, cc_names: list):
+    def get_availability_range(self, dates: List[datetime.date], cc_names: List[str]):
 
         executor = ThreadPoolExecutor(5)
 
