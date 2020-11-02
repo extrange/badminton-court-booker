@@ -4,9 +4,7 @@ Scrapes the onepa.gov.sg website for available badminton courts.
 
 Done purely over http requests (no web browser automation/emulation), so it's much faster.
 
-Uses `requests_future.Sessions`
-
-Built using requests and BeautifulSoup
+Built using requests_future.Sessions and BeautifulSoup
 
 Usage:
 ```python
