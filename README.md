@@ -1,8 +1,10 @@
-# Badminton Court Availability Checker
+# Onepa.gov.sg Badminton Court Availability Checker
 
 Scrapes the onepa.gov.sg website for available badminton courts.
 
 Done purely over http requests (no web browser automation/emulation), so it's much faster.
+
+Uses `requests_future.Sessions`
 
 Built using requests and BeautifulSoup
 
@@ -32,9 +34,9 @@ Output:
                                                   'normal')]},
 ```
 
-You can find the mapping from names to UUIDS in `mapping.py`, or simply supply `CourtDates.ALL_CCS` to iterate through all CCs.
+You can find the mapping from names to UUIDS in `mapping.py`. Use `CourtDates.ALL_CCS` to iterate through all CCs.
 
-The `availability` property is updated on each call of either `get_availability_range` or `get_availability`.
+The `availability` property of `CourtDates` is updated on each call of `get_availability_range`.
 
 To enter a range of dates use 
 ```python
