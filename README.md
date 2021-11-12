@@ -1,5 +1,7 @@
 # Onepa.gov.sg Badminton Court Availability Checker
 
+Update 12/11/21: No longer works as onePA changed the website layout
+
 Scrapes the onepa.gov.sg website for available badminton courts.
 
 Done purely over http requests (no web browser automation/emulation), so it's much faster.
