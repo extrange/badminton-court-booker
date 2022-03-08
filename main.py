@@ -1,19 +1,36 @@
-import json
-from typing import TypedDict, List, Dict
-from datetime import datetime, date, timezone, timedelta
+
 import time
+import json
 import random
+import os
+from dotenv import dotenv_values
+from typing import List, Dict
+import datetime
+from datetime import date, timezone, timedelta
 from pyppeteer import launch
 import asyncio
-import nest_asyncio
-from dotenv import dotenv_values
-nest_asyncio.apply()
+import requests
+from bs4 import BeautifulSoup
 
+config = dotenv_values('.env')
+data_file = 'data.json'
+
+# Search inputs
+activity_id = 18  # badminton
+days_of_week = "Thu"  # or All
+
+# Search links
+login_url = "https://members.myactivesg.com/auth"
+search_url = "https://members.myactivesg.com/facilities/view/activity/{}/venue/{}?time_from={}"
+
+# login information
 # Note: myactivesg.com requires login before court details will be shown
+username = config['USERNAME']
+password = config['PASSWORD']
 
 
 def get_dates(
-) -> List[datetime]:
+) -> List[datetime.datetime]:
     """
     Returns the datetimes of all specified days of the week 14 days from current date
 
@@ -22,6 +39,7 @@ def get_dates(
     Returns:
         A list of datetimes
     """
+    print("Extracting dates...")
     date_list = [(today+timedelta(days=n)) for n in range(16)]
     if days_of_week == 'All':
         return date_list
@@ -33,54 +51,45 @@ def get_dates(
         return filtered_date_list
 
 
-async def get_venues(
-) -> List[str]:
+def get_venues(
+) -> Dict[str, List[str]]:
     """
-    Searches all venues with badminton courts and returns a list of venues
+    Searches all venues with badminton courts and returns a dictionary of venues
 
     Args: None
 
     Returns:
-        A list of venues
+        A dictionary of venues lists - schools which are available only on weekends and others which are available on weekdays and weekend e.g. Sports Halls
+        E.g.
+        {
+            'schools': [...], 
+            'others' : [...]
+        }
     """
+    print("Extracting venues...")
+    venues = {}
     utc_date = round(today.replace(tzinfo=timezone.utc).timestamp())
     url = search_url.format(activity_id, '296', utc_date)
-    browser = await launch()
-    page = await browser.newPage()
-    await page.goto(url)
-    venues = await page.evaluate('''() => [...document.querySelectorAll('#facVenueSelection option')]
-                   .map((element) => {
-                    let venue = {}
-                    venue['name'] = element.text
-                    venue['value'] = element.value
-                    return venue
-                    })
-            ''')
-    await browser.close()
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    facVenueSelection = soup.find('select', {'id': 'facVenueSelection'})
+    option_list = facVenueSelection.find_all('option')
+    school_list = []
+    oth_list = []
+    for option in option_list:
+        venue = {'name': option.text, 'value': option.get('value')}
+        if any(x in option.text for x in ['School', 'College']):
+            school_list.append(venue)
+        elif "Select" not in option.text:
+            oth_list.append(venue)
+    venues['schools'] = school_list
+    venues['others'] = oth_list
     return venues
 
 
-async def get_slots(
-) -> Dict[str, Dict[str, Dict[str, int]]]:
-    """
-    Searches venues with badminton courts, and
-    returns a dictionary of {venue: [available slots]}.
-
-    Args: None
-
-    Returns:
-        A dictionary of {venue: {date: [available_timeslots]}}
-        E.g.
-        {
-            'Bukit Gombak Sports Hall': {
-                '29-01-2022': {
-                    '13:00:00-14:00:00': 2,
-                    '16:00:00-17:00:00': 1
-                }
-            }
-        }
-    """
-
+async def get_login_cookies(
+) -> Dict[str, str]:
+    print("Retrieving cookies...")
     browser = await launch()
     page = await browser.newPage()
     await page.goto(login_url, {
@@ -90,70 +99,106 @@ async def get_slots(
     await page.type('[ id = email ]', username)
     await page.type('[ id = password ]', password)
     await page.click('[id = btn-submit-login]')
+    r = await page._client.send('Network.getAllCookies')
 
-    slots = {}
-    for venue in venue_list:
-        venue_id = venue['value']
-        venue_name = venue['name']
-        slots[venue_name] = {}
-        for date in date_list:
-            date_str = date.strftime("%d-%m-%Y")
-            utc_date = round(date.replace(tzinfo=timezone.utc).timestamp())
-            url = search_url.format(activity_id, venue_id, utc_date)
-
-            time.sleep(random.randrange(3))
-            newTab = await browser.newPage()
-            await newTab.goto(url, {
-                'waitUtil': 'domcontentloaded',
-                'timeout': 0
-            })
-            await newTab.waitForSelector('.timeslot-container')
-            timeslots_list = await newTab.evaluate('''() => [...document.querySelectorAll('.timeslot-container input[name="timeslots[]"]')]
-                .map((element) => {
-                    let slot = element.value.split(';')[3] + '-' + element.value.split(';')[4]
-                    return slot
-                    })
-            ''')
-            timeslots = {i: timeslots_list.count(i) for i in timeslots_list}
-            # remove timeslots that are out of range
-            # super slow
-            for k in list(timeslots.keys()):
-                start_time = int(k[:2])
-                if start_time < earliest_timeslot or start_time > latest_timeslot:
-                    del timeslots[k]
-            # add to dictionary if timeslots is not empty
-            if timeslots:
-                slots[venue_name][date_str] = timeslots
-            await newTab.close()
+    cookies_list = r.get('cookies', {})
+    cookies_dict = {cookie['name']: cookie['value'] for cookie in cookies_list}
     await page.close()
-    return slots
+    return cookies_dict
 
-if __name__ == '__main__':
-    config = dotenv_values('.env')
-    username = config['USERNAME']
-    password = config['PASSWORD']
 
-    login_url = "https://members.myactivesg.com/auth"
-    search_url = "https://members.myactivesg.com/facilities/view/activity/{}/venue/{}?time_from={}"
+def make_request(url, cookies_dict, n, consec_timeout):
+    nil_str = "* There are no available slots for your preferred date."
+    r = requests.get(url, cookies=cookies_dict)
+    print(r.status_code)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    timeslot_container = soup.find(class_='timeslot-container')
+    if nil_str in timeslot_container.text:
+        consec_timeout = consec_timeout + 1
+        print("Login timeout at item {}".format(n))
+        sleep_time = random.randint(10, 20)
+        if consec_timeout > 1:
+            sleep_time = random.randint(200, 300)
+            if consec_timeout > 3:
+                sleep_time = random.randint(8000, 10000)
+        print("{} Consecutive timeout: sleeping for {} seconds".format(
+            consec_timeout, sleep_time))
+        time.sleep(sleep_time)
+        cookies_dict = (asyncio.get_event_loop().run_until_complete(
+            get_login_cookies()))
+        make_request(url, cookies_dict, n, consec_timeout)
+    else:
+        return timeslot_container
 
-    activity_id = 18  # badminton
-    earliest_timeslot = 13  # 24hr format
-    latest_timeslot = 17  # 24hr format
-    days_of_week = "Wed,Sat"  # or All
 
-    today = datetime.combine(date.today(), datetime.min.time())
-    print("Extracting dates:")
-    date_list = get_dates()
-    print(date_list)
-    print("Extracting venues")
-    venue_list = [{'name': 'Clementi Sports Hall', 'value': '296'},  {
-        'name': 'Bukit Gombak Sports Hall', 'value': '293'}]
-    # venue_list = (asyncio.get_event_loop().run_until_complete(
-    #     get_venues()))
-    # TimeoutError: Waiting for selector ".timeslot-container" failed: timeout 30000ms exceeds
-    print(venue_list)
-    print("Extracting slots")
-    slots = (asyncio.get_event_loop().run_until_complete(
-        get_slots()))
+def get_slots(
+) -> Dict[str, Dict[str, Dict[str, int]]]:
+    """
+    Searches venues with badminton courts, and
+    returns a dictionary of {venue: [available slots]}.
 
-    print(json.dumps(slots, sort_keys=False, indent=4))
+    Args: None
+
+    Returns:
+        A dictionary of {date: {venue: [available_timeslots]}}
+        E.g.
+        {
+            '29-01-2022': {
+                'Bukit Gombak Sports Hall': {
+                    '13:00:00': 2,
+                    '16:00:00': 1
+                }
+            }
+        }
+    """
+    print("Extracting slots...")
+    cookies_dict = (asyncio.get_event_loop().run_until_complete(
+        get_login_cookies()))
+
+    timeslots = {}
+    n = 0
+    for date in date_list:
+        date_str = date.strftime("%d-%m-%Y")
+        utc_date = round(date.replace(tzinfo=timezone.utc).timestamp())
+        print(date_str)
+        timeslots[date_str] = {}
+        venue_list = venues['schools'] + \
+            venues['others'] if date.weekday() > 4 else venues['others']
+        for venue in venue_list:
+            venue_id = venue['value']
+            venue_name = venue['name']
+            url = search_url.format(activity_id, venue_id, utc_date)
+            n = n + 1
+            timeslot_container = make_request(
+                url, cookies_dict, n, 0)
+            avail_list = timeslot_container.find_all(
+                'input', {"name": "timeslots[]"})
+            timeslot_list = [v.get('value').split(';')[-2]
+                             for v in avail_list]
+            timeslot_dict = {i: timeslot_list.count(
+                i) for i in timeslot_list}
+            # add to dictionary if timeslots is not empty
+            if timeslot_dict:
+                timeslots[date_str][venue_name] = timeslot_dict
+    return timeslots
+
+
+today = datetime.datetime.combine(date.today(), datetime.time.min)
+today_str = today.strftime("%d-%m-%Y")
+date_list = get_dates()
+# print(date_list)
+venues = get_venues()
+# print(venues)
+start_time = time.time()
+timeslots = get_slots()
+print("--- %s seconds ---" % (time.time() - start_time))
+print(timeslots)
+if os.path.exists(data_file):
+    with open('data.json') as fp:
+        data = json.load(fp)
+else:
+    data = {}
+data[today_str] = timeslots
+with open('data.json', 'w') as fp:
+    json.dump(data, fp)
+print("Data saved.")
