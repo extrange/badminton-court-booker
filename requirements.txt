@@ -1,4 +1,4 @@
 beautifulsoup4==4.10.0
 pyppeteer==1.0.2
-python-dotenv==0.19.2
+python-dotenv==0.21.1
 requests==2.27.1
